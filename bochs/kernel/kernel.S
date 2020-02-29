@@ -3,10 +3,9 @@
 
 %define ZERO push 0
 
-extern put_str;
-
+extern idt_table
+extern put_int
 section .data
-intr_str db "interrupt occur!", 0xa, 0
 global intr_entry_table
 intr_entry_table:
 
@@ -14,21 +13,36 @@ intr_entry_table:
 section .text
 intr%1entry:
 	%2
-	push intr_str
-	call put_str
-	add esp, 4
+	push ds
+	push es
+	push fs
+	push gs
+	pushad
 
 	mov al, 0x20
 	out 0xa0, al
 	out 0x20, al
 
-	add esp, 4
-	iret
+	push %1
+	call [idt_table + %1*4]
+	jmp intr_exit
 
 section .data
 	dd intr%1entry
 
 %endmacro
+
+section .text
+global intr_exit
+intr_exit:
+	add esp, 4
+	popad
+	pop gs
+	pop fs
+	pop es
+	pop ds
+	add esp, 4
+	iretd
 
 VECTOR 0x00, ZERO
 VECTOR 0x01, ZERO
@@ -60,6 +74,48 @@ VECTOR 0x1a, ZERO
 VECTOR 0x1b, ZERO
 VECTOR 0x1c, ZERO
 VECTOR 0x1d, ZERO
-VECTOR 0x1e, ZERO
+VECTOR 0x1e, ERROR_CODE
 VECTOR 0x1f, ZERO
 VECTOR 0x20, ZERO
+VECTOR 0x21, ZERO
+VECTOR 0x22, ZERO
+VECTOR 0x23, ZERO
+VECTOR 0x24, ZERO
+VECTOR 0x25, ZERO
+VECTOR 0x26, ZERO
+VECTOR 0x27, ZERO
+VECTOR 0x28, ZERO
+VECTOR 0x29, ZERO
+VECTOR 0x2a, ZERO
+VECTOR 0x2b, ZERO
+VECTOR 0x2c, ZERO
+VECTOR 0x2d, ZERO
+VECTOR 0x2e, ZERO
+VECTOR 0x2f, ZERO
+
+[bits 32]
+extern syscall_table
+section .text
+global syscall_handler
+syscall_handler:
+	push 0
+	push ds
+	push es
+	push fs
+	push gs
+	pushad
+
+	push 0x80
+
+	mov ebx, [esp + 4 + 48 + 4 + 12]
+
+	push dword [ebx + 12]
+	push dword [ebx + 8]
+	push dword [ebx + 4]
+	mov edx, [ebx]
+
+	call [syscall_table + edx * 4]
+	add esp, 12
+
+	mov [esp + 8 * 4], eax
+	jmp intr_exit
