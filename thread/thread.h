@@ -1,9 +1,12 @@
 #ifndef __THREAD_THREAD_H
 #define __THREAD_THREAD_H
+#include "stdint.h"
 #include "list.h"
 #include "bitmap.h"
-#include "stdint.h"
 #include "memory.h"
+
+#define TASK_NAME_LEN 16
+#define MAX_FILES_OPEN_PER_PROC 8
 
 typedef void thread_func(void*);
 typedef int16_t pid_t;
@@ -57,18 +60,19 @@ struct task_struct {
 	uint32_t* self_kstack;
 	pid_t pid;
 	enum task_status status;
-	char name[16];
+	char name[TASK_NAME_LEN];
 	uint8_t priority;
 	uint8_t ticks;
-	
 	uint32_t elapsed_ticks;
-
 	struct list_elem general_tag;
 	struct list_elem all_list_tag;
-
 	uint32_t* pgdir;
 	struct virtual_addr userprog_vaddr;
 	struct mem_block_desc u_block_desc[DESC_CNT];
+	int32_t fd_table[MAX_FILES_OPEN_PER_PROC];
+	uint32_t cwd_inode_nr;
+	pid_t parent_pid;
+	int8_t exit_status;
 	uint32_t stack_magic;
 };
 
@@ -84,4 +88,9 @@ void thread_init(void);
 void thread_block(enum task_status stat);
 void thread_unblock(struct task_struct* pthread);
 void thread_yield(void);
+pid_t fork_pid(void);
+void sys_ps(void);
+void thread_exit(struct task_struct* thread_over, bool need_schedule);
+struct task_struct* pid2thread(int32_t pid);
+void release_pid(pid_t pid);
 #endif
